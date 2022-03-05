@@ -36,6 +36,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         const float dragSpeedInTopView = 0.0002f; // hold left mouse button down and move mouse to move geometry with this speed) - in top view mode (2D view mode)
         const float dragRotateSpeedInTopView = 5.0f; // hold right mouse button down and move left/right to rotate geometry with this speed - in top view mode (2D view mode)
         const float dragRotateSpeedInView3D = 4.5f; // hold right mouse button down and move left/right to rotate geometry with this speed - in 3D view mode
+        Vector2 dragRotateSpeedResolutionCompensation = new Vector2(320.0f/Screen.width, 200.0f/Screen.height)*20.0f;
         const float dragRotateCameraOnCameraYZplaneAroundObjectSpeedInView3D = 5.0f; // hold right mouse button down and move up/down to rotate camera on camera YZ-plane around object with this speed - in 3D view mode            
 
         const float changeSpeedCameraFieldOfView = 50.0f; // mouse wheel over grid button will change camera field of view in 3D mode with this speed
@@ -904,11 +905,11 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                     {
                         case AutomapViewMode.View2D:
                         default:
-                            ActionRotateCamera(+dragRotateSpeedInTopView * bias.x, false);
+                            ActionRotateCamera(+dragRotateSpeedInTopView * bias.x * dragRotateSpeedResolutionCompensation.x, false);
                             break;
                         case AutomapViewMode.View3D:
-                            ActionRotate(dragRotateSpeedInView3D * bias.x, false);
-                            ActionrotateCameraOnCameraYZplaneAroundObject(-dragRotateCameraOnCameraYZplaneAroundObjectSpeedInView3D * bias.y, false);
+                            ActionRotate(dragRotateSpeedInView3D * bias.x * dragRotateSpeedResolutionCompensation.x, false);
+                            ActionrotateCameraOnCameraYZplaneAroundObject(-dragRotateCameraOnCameraYZplaneAroundObjectSpeedInView3D * bias.y * dragRotateSpeedResolutionCompensation.y, false);
                             break;
                     }
                     UpdateAutomapView();
