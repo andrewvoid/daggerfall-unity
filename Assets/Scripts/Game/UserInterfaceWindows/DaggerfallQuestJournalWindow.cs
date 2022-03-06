@@ -611,20 +611,20 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         {
             List<TextFile.Token[]> notes = GameManager.Instance.PlayerEntity.Notebook.GetNotes();
             messageCount = notes.Count;
-            questLogLabel.TextScale = textScaleSmall;
+            questLogLabel.TextScale = getNotesTextScale();
             titleLabel.Text = TextManager.Instance.GetLocalizedText("notebook");
             titleLabel.ToolTipText = TextManager.Instance.GetLocalizedText("notebookInfo");
-            SetTextWithListEntries(notes, maxLinesSmall);
+            SetTextWithListEntries(notes, getNotesMaxLines());
         }
 
         protected virtual void SetTextMessages()
         {
             List<TextFile.Token[]> messages = GameManager.Instance.PlayerEntity.Notebook.GetMessages();
             messageCount = messages.Count;
-            questLogLabel.TextScale = textScaleSmall;
+            questLogLabel.TextScale = getNotesTextScale();
             titleLabel.Text = TextManager.Instance.GetLocalizedText("messages");
             titleLabel.ToolTipText = TextManager.Instance.GetLocalizedText("messagesInfo");
-            SetTextWithListEntries(messages, maxLinesSmall);
+            SetTextWithListEntries(messages, getNotesMaxLines());
         }
 
         protected virtual void SetTextWithListEntries(List<TextFile.Token[]> entries, int maxLines)
@@ -659,6 +659,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                         token.formatting = TextFile.Formatting.JustifyLeft;
 
                     textTokens.Add(token);
+                    textTokens.Add(TextFile.NewLineToken);
                 }
                 textTokens.Add(TextFile.NewLineToken);
                 totalLineCount++;
@@ -669,7 +670,29 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             questLogLabel.Size = new Vector2(questLogLabel.Size.x, 138);
         }
 
+        public static int getNotesMaxLines()
+        {
+            if (Screen.height >= 480)
+            {
+                return maxLinesSmall;
+            }
+            else
+            {
+                return maxLinesQuests;
+            }
+        }
 
+        public static float getNotesTextScale()
+        {
+            if (Screen.height >= 480)
+            {
+                return textScaleSmall;
+            }
+            else
+            {
+                return 1.0f;
+            }
+        }
 #if LAYOUT
         void SetBackgroundColors()
         {
