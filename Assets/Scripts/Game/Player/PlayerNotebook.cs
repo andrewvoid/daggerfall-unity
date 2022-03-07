@@ -16,7 +16,6 @@ using DaggerfallWorkshop.Game.UserInterfaceWindows;
 using UnityEngine;
 using DaggerfallWorkshop.Utility;
 using DaggerfallWorkshop.Game.Questing;
-using System.Linq;
 
 namespace DaggerfallWorkshop.Game.Player
 {
@@ -30,10 +29,8 @@ namespace DaggerfallWorkshop.Game.Player
         private const string PrefixQuestion = "Q:";
         private const string PrefixAnswer = "A:";
         const int MaxMessageCount = 50;
-        private string CurrentTempLine = "";
-        private TextFile.Formatting CurrentTempFormatting = TextFile.Formatting.Nothing;
 
-        readonly static TextFile.Token NothingToken = new TextFile.Token() {
+        public readonly static TextFile.Token NothingToken = new TextFile.Token() {
             formatting = TextFile.Formatting.Nothing,
         };
 
@@ -99,7 +96,7 @@ namespace DaggerfallWorkshop.Game.Player
                     else
                         WrapLinesIntoNote(note, token.text, token.formatting);
 
-                    if ((note.Count - 2) >= (DaggerfallQuestJournalWindow.getNotesMaxLines() * 2))
+                    if ((note.Count - 2) >= (DaggerfallQuestJournalWindow.maxLinesSmall * 2))
                     {
                         notes.Add(note.ToArray());
                         note = CreateNote();
@@ -123,10 +120,11 @@ namespace DaggerfallWorkshop.Game.Player
 
         private static void WrapLinesIntoNote(List<TextFile.Token> note, string str, TextFile.Formatting format)
         {
-            while (str.Length > getMaxLineLength(true))
+            while (str.Length > MaxLineLenth)
             {
-                int pos = str.LastIndexOf(' ', getMaxLineLength(true));
-                note.Add(new TextFile.Token() {
+                int pos = str.LastIndexOf(' ', MaxLineLenth);
+                note.Add(new TextFile.Token()
+                {
                     text = ' ' + str.Substring(0, pos),
                     formatting = format,
                 });
@@ -317,202 +315,48 @@ namespace DaggerfallWorkshop.Game.Player
             ConvertData(notebookData.finishedQuestEntries, finishedQuests, false);
         }
 
-        private List<string> BreakLine(string line, bool indent, bool isNote)
-        {
-            List<string> subLines = new List<string>();
-
-            foreach (string word in line.Split(' '))
-            {
-                if (!string.IsNullOrWhiteSpace(word))
-                {
-                    if (CurrentTempLine.Length + word.Length + 1 > getMaxLineLength(isNote))
-                    {
-                        subLines.Add(CurrentTempLine);
-                        if (indent)
-                        {
-                            CurrentTempLine = " " + word.Trim();
-                        }
-                        else
-                        {
-                            CurrentTempLine = word.Trim();
-                        }
-                    }
-                    else if (!indent && string.IsNullOrEmpty(CurrentTempLine))
-                    {
-                        CurrentTempLine = word.Trim();
-                    }
-                    else
-                    {
-                        CurrentTempLine += " " + word.Trim();
-                    }
-                }
-            }
-            return subLines;
-        }
-
-        private void AddBlockToLog(List<List<string>> log, List<string> currentBlock, List<int> processed)
-        {
-            if (currentBlock.Count != 0)
-            {
-                int currentHash = GetSequenceHashCode(currentBlock);
-                if (!processed.Contains(currentHash)) // Only add non duplicated entries
-                {
-                    processed.Add(currentHash);
-                    log.Add(new List<string>(currentBlock));
-                }
-                currentBlock.Clear();
-            }
-        }
-
-
         private void ConvertData(List<List<string>> listData, List<TextFile.Token[]> list, bool notes)
         {
-            List<List<string>> cleanedData = new List<List<string>>();
-            List<string> currentBlock = new List<string>();
-            List<int> processed = new List<int>();
-            bool newBlock = false;
-
             foreach (List<string> entry in listData)
             {
-                newBlock = true; // A new entry will always be a new block
+                List<TextFile.Token> lines = new List<TextFile.Token>(entry.Count * 2);
                 foreach (string line in entry)
                 {
-                    // A new date, or empty string, also triggers a new block
-                    if (line.StartsWith(PrefixDateHeader) || string.IsNullOrEmpty(line)) newBlock = true;
-
-                    if (newBlock) // New block present, add it to the list, and create new one
-                    {
-                        AddBlockToLog(cleanedData, currentBlock, processed);
-                        newBlock = false;
-                    }
-                    if (!string.IsNullOrEmpty(line))
-                    {
-                        currentBlock.Add(line);
-                    }
-                }
-            }
-            AddBlockToLog(cleanedData, currentBlock, processed);
-
-            List<string> currentScreen = new List<string>();
-
-            foreach (List<string> entry in cleanedData)
-            {
-                List<TextFile.Token> lines = new List<TextFile.Token>();
-                bool indent = false;
-                foreach (string line in entry)
-                {
-                    bool dateLine = false;
-                    string substring = "";
-                    TextFile.Formatting newFormatting = TextFile.Formatting.Nothing;
-
                     if (line.StartsWith(PrefixDateHeader))
-                    {
-                        indent = false;
-                        substring = line.Substring(PrefixDateHeader.Length);
-                        newFormatting = TextFile.Formatting.TextHighlight;
-                    }
-                    else if (line.StartsWith(PrefixQuestion))
-                    {
-                        indent = false;
-                        substring = line.Substring(PrefixQuestion.Length);
-                        newFormatting = TextFile.Formatting.TextQuestion;
-                    }
-                    else if (line.StartsWith(PrefixAnswer))
-                    {
-                        indent = false;
-                        substring = line.Substring(PrefixAnswer.Length);
-                        newFormatting = TextFile.Formatting.TextAnswer;
-                    }
-                    else if (!string.IsNullOrEmpty(line))
-                    {
-                        substring = line;
-                        newFormatting = TextFile.Formatting.Text;
-                        if (substring.EndsWith(":")) dateLine = true;
-                    }
-                    if (newFormatting != CurrentTempFormatting)
-                    {
-                        if (!string.IsNullOrWhiteSpace(CurrentTempLine))
-                        {
-                            lines.Add(new TextFile.Token()
-                            {
-                                text = CurrentTempLine,
-                                formatting = CurrentTempFormatting
-                            });
-                        }
-                        CurrentTempFormatting = newFormatting;
-                        CurrentTempLine = "";
-                    }
-                    if (dateLine)
-                    {
-                        indent = false;
-                        if (!string.IsNullOrWhiteSpace(CurrentTempLine))
-                        {
-                            lines.Add(new TextFile.Token()
-                            {
-                                text = CurrentTempLine,
-                                formatting = CurrentTempFormatting
-                            });
-                            CurrentTempLine = "";
-                        }
-                    }
-                    foreach (string subline in BreakLine(substring, indent, notes))
                     {
                         lines.Add(new TextFile.Token()
                         {
-                            text = subline,
-                            formatting = CurrentTempFormatting
+                            text = line.Substring(PrefixDateHeader.Length),
+                            formatting = TextFile.Formatting.TextHighlight
                         });
                     }
-                    if (dateLine)
+                    else if (line.StartsWith(PrefixQuestion))
                     {
-                        indent = true;
-                        if (!string.IsNullOrWhiteSpace(CurrentTempLine))
+                        lines.Add(new TextFile.Token()
                         {
-                            lines.Add(new TextFile.Token()
-                            {
-                                text = CurrentTempLine,
-                                formatting = CurrentTempFormatting
-                            });
-                            CurrentTempLine = "";
-                        }
+                            text = line.Substring(PrefixQuestion.Length),
+                            formatting = TextFile.Formatting.TextQuestion
+                        });
                     }
-                }
-                if (!string.IsNullOrWhiteSpace(CurrentTempLine))
-                {
-                    lines.Add(new TextFile.Token()
+                    else if (line.StartsWith(PrefixAnswer))
                     {
-                        text = CurrentTempLine,
-                        formatting = CurrentTempFormatting
-                    });
-
-                    CurrentTempLine = "";
-                    CurrentTempFormatting = TextFile.Formatting.Nothing;
+                        lines.Add(new TextFile.Token()
+                        {
+                            text = line.Substring(PrefixAnswer.Length),
+                            formatting = TextFile.Formatting.TextAnswer
+                        });
+                    }
+                    else if (!string.IsNullOrEmpty(line))
+                    {
+                        lines.Add(new TextFile.Token()
+                        {
+                            text = line,
+                            formatting = TextFile.Formatting.Text
+                        });
+                    }
+                    lines.Add(!string.IsNullOrEmpty(line) ? NothingToken : TextFile.NewLineToken);
                 }
                 list.Add(lines.ToArray());
-            }
-        }
-
-        private static int GetSequenceHashCode(IList<string> sequence)
-        {
-            const int seed = 487;
-            const int modifier = 31;
-
-            unchecked
-            {
-                return sequence.Aggregate(seed, (current, item) =>
-                    (current * modifier) + item.GetHashCode());
-            }
-        }
-
-        public static int getMaxLineLength(bool isNote)
-        {
-            if (isNote && Screen.height >= 480)
-            {
-                return MaxLineLenth;
-            }
-            else
-            {
-                return 50;
             }
         }
 

@@ -18,6 +18,7 @@ using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.Questing;
 using DaggerfallWorkshop.Game.Player;
 using DaggerfallWorkshop.Utility;
+using System.Linq;
 
 namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 {
@@ -47,6 +48,11 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 
         KeyCode toggleClosedBinding1;
         KeyCode toggleClosedBinding2;
+
+        private string CurrentTempLine = "";
+        private TextFile.Formatting CurrentTempFormatting = TextFile.Formatting.Nothing;
+        public const int maxLineLength = 50;
+        public const int maxLineLengthSmall = 70;
 
         #endregion
 
@@ -604,7 +610,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             questLogLabel.TextScale = 1;
             titleLabel.Text = TextManager.Instance.GetLocalizedText("finishedQuests");
             titleLabel.ToolTipText = TextManager.Instance.GetLocalizedText("finishedQuestsInfo");
-            SetTextWithListEntries(finishedQuests, maxLinesQuests);
+            SetTextWithListEntries(finishedQuests, maxLinesQuests, false);
         }
 
         protected virtual void SetTextNotebook()
@@ -614,7 +620,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             questLogLabel.TextScale = getNotesTextScale();
             titleLabel.Text = TextManager.Instance.GetLocalizedText("notebook");
             titleLabel.ToolTipText = TextManager.Instance.GetLocalizedText("notebookInfo");
-            SetTextWithListEntries(notes, getNotesMaxLines());
+            SetTextWithListEntries(notes, getNotesMaxLines(), true);
         }
 
         protected virtual void SetTextMessages()
@@ -624,15 +630,182 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             questLogLabel.TextScale = getNotesTextScale();
             titleLabel.Text = TextManager.Instance.GetLocalizedText("messages");
             titleLabel.ToolTipText = TextManager.Instance.GetLocalizedText("messagesInfo");
-            SetTextWithListEntries(messages, getNotesMaxLines());
+            SetTextWithListEntries(messages, getNotesMaxLines(), true);
         }
 
-        protected virtual void SetTextWithListEntries(List<TextFile.Token[]> entries, int maxLines)
+        private void AddBlockToEntries(List<TextFile.Token[]> cleanedEntries, List<TextFile.Token> currentBlock, List<int> processed)
+        {
+            if (currentBlock.Count != 0)
+            {
+                int currentHash = GetTokenSequenceHashCode(currentBlock);
+                if (!processed.Contains(currentHash)) // Only add non duplicated entries
+                {
+                    processed.Add(currentHash);
+                    cleanedEntries.Add(currentBlock.ToArray());
+                }
+                currentBlock.Clear();
+            }
+        }
+
+        private List<string> BreakLine(string line, bool indent, bool isNote)
+        {
+            List<string> subLines = new List<string>();
+
+            foreach (string word in line.Split(' '))
+            {
+                if (!string.IsNullOrWhiteSpace(word))
+                {
+                    if (CurrentTempLine.Length + word.Length + 1 > getMaxLineLength(isNote))
+                    {
+                        subLines.Add(CurrentTempLine);
+                        if (indent)
+                        {
+                            CurrentTempLine = " " + word.Trim();
+                        }
+                        else
+                        {
+                            CurrentTempLine = word.Trim();
+                        }
+                    }
+                    else if (!indent && string.IsNullOrEmpty(CurrentTempLine))
+                    {
+                        CurrentTempLine = word.Trim();
+                    }
+                    else
+                    {
+                        CurrentTempLine += " " + word.Trim();
+                    }
+                }
+            }
+            return subLines;
+        }
+        protected List<TextFile.Token[]> CleanListEntry(List<TextFile.Token[]> entries, bool isNote)
+        {
+            List<TextFile.Token[]> cleanedEntries = new List<TextFile.Token[]>();
+            List<TextFile.Token> currentBlock = new List<TextFile.Token>();
+            List<int> processed = new List<int>();
+            bool newBlock = false;
+
+            foreach (TextFile.Token[] entry in entries)
+            {
+                newBlock = true; // A new entry will always be a new block
+                foreach (TextFile.Token token in entry)
+                {
+                    if (token.formatting == TextFile.Formatting.TextHighlight ||
+                            token.formatting == TextFile.Formatting.TextAnswer ||
+                            token.formatting == TextFile.Formatting.TextQuestion ||
+                            token.formatting == TextFile.Formatting.NewLine) newBlock = true;
+
+                    if (newBlock) // New block present, add it to the list, and create new one
+                    {
+                        AddBlockToEntries(cleanedEntries, currentBlock, processed);
+                        newBlock = false;
+                    }
+
+                    if (token.formatting != TextFile.Formatting.NewLine) currentBlock.Add(token);
+                }
+            }
+            AddBlockToEntries(cleanedEntries, currentBlock, processed);
+
+            List<TextFile.Token[]> finalEntries = new List<TextFile.Token[]>();
+            CurrentTempLine = "";
+            CurrentTempFormatting = TextFile.Formatting.Nothing;
+
+            foreach (TextFile.Token[] entry in cleanedEntries)
+            {
+                List<TextFile.Token> lines = new List<TextFile.Token>();
+                bool indent = false;
+                foreach (TextFile.Token token in entry)
+                {
+                    bool dateLine = false;
+                    string substring = token.text;
+                    if (string.IsNullOrEmpty(substring)) continue;
+                    TextFile.Formatting newFormatting = token.formatting;
+
+                    if (token.formatting == TextFile.Formatting.TextHighlight ||
+                       token.formatting == TextFile.Formatting.TextAnswer ||
+                       token.formatting == TextFile.Formatting.TextQuestion) indent = false;
+
+                    if(token.formatting == TextFile.Formatting.Text && substring.EndsWith(":")) dateLine = true;
+
+
+                    if (newFormatting != CurrentTempFormatting)
+                    {
+                        if (!string.IsNullOrWhiteSpace(CurrentTempLine))
+                        {
+                            lines.Add(new TextFile.Token()
+                            {
+                                text = CurrentTempLine,
+                                formatting = CurrentTempFormatting
+                            });
+                            lines.Add(PlayerNotebook.NothingToken);
+                        }
+                        CurrentTempFormatting = newFormatting;
+                        CurrentTempLine = "";
+                    }
+                    if (dateLine)
+                    {
+                        indent = false;
+                        if (!string.IsNullOrWhiteSpace(CurrentTempLine))
+                        {
+                            lines.Add(new TextFile.Token()
+                            {
+                                text = CurrentTempLine,
+                                formatting = CurrentTempFormatting
+                            });
+                            CurrentTempLine = "";
+                            lines.Add(PlayerNotebook.NothingToken);
+                        }
+                    }
+
+                    foreach (string subline in BreakLine(substring, indent, isNote))
+                    {
+                        lines.Add(new TextFile.Token()
+                        {
+                            text = subline,
+                            formatting = CurrentTempFormatting
+                        });
+                        lines.Add(PlayerNotebook.NothingToken);
+                    }
+                    if (dateLine)
+                    {
+                        indent = true;
+                        if (!string.IsNullOrWhiteSpace(CurrentTempLine))
+                        {
+                            lines.Add(new TextFile.Token()
+                            {
+                                text = CurrentTempLine,
+                                formatting = CurrentTempFormatting
+                            });
+                            lines.Add(PlayerNotebook.NothingToken);
+                            CurrentTempLine = "";
+                        }
+                    }
+                }
+                if (!string.IsNullOrWhiteSpace(CurrentTempLine))
+                {
+                    lines.Add(new TextFile.Token()
+                    {
+                        text = CurrentTempLine,
+                        formatting = CurrentTempFormatting
+                    });
+                    lines.Add(PlayerNotebook.NothingToken);
+                    CurrentTempLine = "";
+                    CurrentTempFormatting = TextFile.Formatting.Nothing;
+                }
+                finalEntries.Add(lines.ToArray());
+                    }
+        return finalEntries;
+        }
+
+        protected virtual void SetTextWithListEntries(List<TextFile.Token[]> rawEntries, int maxLines, bool notes)
         {
             int totalLineCount = 0;
             int boundary = 0;
             entryLineMap = new List<int>(maxLines);
             List<TextFile.Token> textTokens = new List<TextFile.Token>();
+
+            List<TextFile.Token[]> entries = CleanListEntry(rawEntries, notes);
 
             for (int i = currentMessageIndex; i < entries.Count; i++)
             {
@@ -659,7 +832,6 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                         token.formatting = TextFile.Formatting.JustifyLeft;
 
                     textTokens.Add(token);
-                    textTokens.Add(TextFile.NewLineToken);
                 }
                 textTokens.Add(TextFile.NewLineToken);
                 totalLineCount++;
@@ -693,6 +865,31 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                 return 1.0f;
             }
         }
+
+        public static int getMaxLineLength(bool isNote)
+        {
+            if (isNote && Screen.height >= 480)
+            {
+                return maxLineLengthSmall;
+            }
+            else
+            {
+                return maxLineLength;
+            }
+        }
+
+        private static int GetTokenSequenceHashCode(IList<TextFile.Token> sequence)
+        {
+            const int seed = 487;
+            const int modifier = 31;
+
+            unchecked
+            {
+                return sequence.Aggregate(seed, (current, item) =>
+                    (current * modifier) + item.GetHashCode());
+            }
+        }
+
 #if LAYOUT
         void SetBackgroundColors()
         {
