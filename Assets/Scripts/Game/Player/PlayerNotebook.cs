@@ -30,7 +30,7 @@ namespace DaggerfallWorkshop.Game.Player
         private const string PrefixAnswer = "A:";
         const int MaxMessageCount = 50;
 
-        public readonly static TextFile.Token NothingToken = new TextFile.Token() {
+        readonly static TextFile.Token NothingToken = new TextFile.Token() {
             formatting = TextFile.Formatting.Nothing,
         };
 
@@ -123,8 +123,7 @@ namespace DaggerfallWorkshop.Game.Player
             while (str.Length > MaxLineLenth)
             {
                 int pos = str.LastIndexOf(' ', MaxLineLenth);
-                note.Add(new TextFile.Token()
-                {
+                note.Add(new TextFile.Token() {
                     text = ' ' + str.Substring(0, pos),
                     formatting = format,
                 });
@@ -324,32 +323,28 @@ namespace DaggerfallWorkshop.Game.Player
                 {
                     if (line.StartsWith(PrefixDateHeader))
                     {
-                        lines.Add(new TextFile.Token()
-                        {
+                        lines.Add(new TextFile.Token() {
                             text = line.Substring(PrefixDateHeader.Length),
                             formatting = TextFile.Formatting.TextHighlight
                         });
                     }
                     else if (line.StartsWith(PrefixQuestion))
                     {
-                        lines.Add(new TextFile.Token()
-                        {
+                        lines.Add(new TextFile.Token() {
                             text = line.Substring(PrefixQuestion.Length),
                             formatting = TextFile.Formatting.TextQuestion
                         });
                     }
                     else if (line.StartsWith(PrefixAnswer))
                     {
-                        lines.Add(new TextFile.Token()
-                        {
+                        lines.Add(new TextFile.Token() {
                             text = line.Substring(PrefixAnswer.Length),
                             formatting = TextFile.Formatting.TextAnswer
                         });
                     }
                     else if (!string.IsNullOrEmpty(line))
                     {
-                        lines.Add(new TextFile.Token()
-                        {
+                        lines.Add(new TextFile.Token() {
                             text = line,
                             formatting = TextFile.Formatting.Text
                         });
