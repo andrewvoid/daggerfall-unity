@@ -38,6 +38,7 @@ namespace DaggerfallWorkshop.Game
         float joystickMovementThreshold = 0.95F;
 
         public Texture2D controllerCursorImage;
+        public Texture2D smallCursorImage;
 
         Dictionary<int, String> axisKeyCodeStrings = new Dictionary<int, String>();
         String[] axisKeyCodeToInputAxis = new String[numAxes * 2];
@@ -120,6 +121,8 @@ namespace DaggerfallWorkshop.Game
         float controllerCursorVerticalSpeed = 300.0F;
 
         bool pauseController = false;
+
+        bool smallCursor = false;
 
         #endregion
 
@@ -428,6 +431,7 @@ namespace DaggerfallWorkshop.Game
                 DaggerfallUnity.LogMessage(string.Format("Could not load keybinds file. The exception was: '{0}'", ex.Message), true);
                 DaggerfallUnity.LogMessage("Setting default key binds after failed load.", true);
             }
+            if (smallCursorImage != null && Screen.height <= 480) smallCursor = true;
         }
 
         void Update()
@@ -581,7 +585,15 @@ namespace DaggerfallWorkshop.Game
                 }
                 else
                 {
-                    Cursor.visible = true;
+                    if (!smallCursor)
+                        Cursor.visible = true;
+                    else
+                    {
+                        Cursor.visible = false;
+                        GUI.depth = 0;
+                        GUI.DrawTexture(new Rect(MousePosition.x, Screen.height - MousePosition.y, smallCursorImage.width, smallCursorImage.height), smallCursorImage);
+                    }
+
                 }
             }
             else

@@ -580,6 +580,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   controllerCursorImage: {fileID: 2800000, guid: 887ec86cd12e1624d8458c8d7950402a,
     type: 3}
+  smallCursorImage: {fileID: 2800000, guid: 91c29223d6ebe994182279f8d1aceca6, type: 3}
 --- !u!4 &1875148818
 Transform:
   m_ObjectHideFlags: 0
