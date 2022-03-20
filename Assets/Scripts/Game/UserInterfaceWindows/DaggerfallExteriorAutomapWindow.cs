@@ -861,9 +861,9 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             Rect restrictionRect = panelRenderAutomap.Rectangle;
             Vector3 retroModeCompensationRatio = new Vector3(1, 1, 1);
             if (DaggerfallUnity.Settings.RetroRenderingMode == 1)
-                retroModeCompensationRatio = new Vector3(Screen.width / 320, Screen.height / 200, 1);
+                retroModeCompensationRatio = new Vector3(Screen.width / 320f, Screen.height / 200f, 1f);
             else if (DaggerfallUnity.Settings.RetroRenderingMode == 2)
-                retroModeCompensationRatio = new Vector3(Screen.width / 640, Screen.height / 400, 1);
+                retroModeCompensationRatio = new Vector3(Screen.width / 640f, Screen.height / 400f, 1f);
             for (int i=0; i < exteriorAutomap.buildingNameplates.Length; i++)
             {
                 float posX = exteriorAutomap.buildingNameplates[i].anchorPoint.x - exteriorAutomap.LocationWidth * exteriorAutomap.BlockSizeWidth * 0.5f;

@@ -198,6 +198,8 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
 
         bool isSetup = false;
 
+        Vector2 mousePositionRetroScaling = new Vector2(1, 1);
+
         public DaggerfallAutomapWindow(IUserInterfaceManager uiManager)
             : base(uiManager)
         {
@@ -686,6 +688,11 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         /// </summary>
         public override void Update()
         {
+            if (DaggerfallUnity.Settings.RetroRenderingMode == 1)
+                mousePositionRetroScaling = new Vector2(320f / Screen.width, 200f / Screen.height);
+            else if (DaggerfallUnity.Settings.RetroRenderingMode == 2)
+                mousePositionRetroScaling = new Vector3(640f / Screen.width, 400f / Screen.height);
+
             // check if iTween camera animation is running
             if (automap.ITweenCameraAnimationIsRunning)
             {
@@ -727,6 +734,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                 //Vector2 mousePosition = new Vector2((InputManager.Instance.MousePosition.x / Screen.width) * panelRenderAutomap.Size.x, (InputManager.Instance.MousePosition.y / Screen.height) * panelRenderAutomap.Size.y);
                 Vector2 mousePosition = panelRenderAutomap.ScaledMousePosition;
                 mousePosition.y = panelRenderAutomap.Size.y - mousePosition.y;
+                mousePosition = Vector2.Scale(mousePosition, mousePositionRetroScaling);
                 automap.TryTeleportPlayerToDungeonSegmentAtScreenPosition(mousePosition);
                 UpdateAutomapView();
             }
@@ -1027,6 +1035,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         {
             Vector2 mousePosition = panelRenderAutomap.ScaledMousePosition;
             mousePosition.y = panelRenderAutomap.Size.y - mousePosition.y;
+            mousePosition = Vector2.Scale(mousePosition, mousePositionRetroScaling);
             string hoverOverText = automap.GetMouseHoverOverText(mousePosition);
             labelHoverText.Text = hoverOverText;
         }
@@ -1038,6 +1047,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         {
             Vector2 mousePosition = panelRenderAutomap.ScaledMousePosition;
             mousePosition.y = panelRenderAutomap.Size.y - mousePosition.y;
+            mousePosition = Vector2.Scale(mousePosition, mousePositionRetroScaling);
             if (automap.UpdateMouseHoverOverGameObjects(mousePosition))
                 UpdateAutomapView();
         }
@@ -1877,6 +1887,8 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         {
             Vector2 mousePosition = panelRenderAutomap.ScaledMousePosition;
             mousePosition.y = panelRenderAutomap.Size.y - mousePosition.y;
+            mousePosition = Vector2.Scale(mousePosition, mousePositionRetroScaling);
+
             if (!GameManager.Instance.IsPlayerInsideBuilding)
             {
                 // first check for teleporter portal marker hits
@@ -1892,6 +1904,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         {            
             Vector2 mousePosition = panelRenderAutomap.ScaledMousePosition;
             mousePosition.y = panelRenderAutomap.Size.y - mousePosition.y;
+            mousePosition = Vector2.Scale(mousePosition, mousePositionRetroScaling);
 
             // try to remove user note markers
             if (automap.TryToRemoveUserNoteMarkerOnDungeonSegmentAtScreenPosition(mousePosition))
@@ -1919,6 +1932,8 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         {
             Vector2 mousePosition = panelRenderAutomap.ScaledMousePosition;
             mousePosition.y = panelRenderAutomap.Size.y - mousePosition.y;
+            mousePosition = Vector2.Scale(mousePosition, mousePositionRetroScaling);
+
             automap.TryCenterAutomapCameraOnDungeonSegmentAtScreenPosition(mousePosition);
         }
 
