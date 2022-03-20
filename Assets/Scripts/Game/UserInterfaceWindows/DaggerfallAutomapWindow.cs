@@ -688,6 +688,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
         /// </summary>
         public override void Update()
         {
+            mousePositionRetroScaling = new Vector2(1f, 1f);
             if (DaggerfallUnity.Settings.RetroRenderingMode == 1)
                 mousePositionRetroScaling = new Vector2(320f / Screen.width, 200f / Screen.height);
             else if (DaggerfallUnity.Settings.RetroRenderingMode == 2)
