@@ -22,7 +22,7 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
     {
         const int toolTipDelay = 1; // delay in seconds before button tooltips are shown        
 
-        const float minTextScaleNameplates = 1.4f; // minimum text scale for nameplates
+        float minTextScaleNameplates = (Screen.height > 480) ? 1.4f: 1.0f; // minimum text scale for nameplates
         const float textScaleNameplates = 60.0f; // text scale factor to specify how large in general nameplates' text is rendered (text size is also affected by zoom level)
 
         const float scrollLeftRightSpeed = 100.0f; // left mouse on button arrow left/right makes geometry move with this speed
@@ -499,8 +499,12 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             cameraExteriorAutomap = exteriorAutomap.CameraExteriorAutomap;
 
             // create automap render texture and Texture2D used in conjuction with automap camera to render automap level geometry and display it in panel
-            Rect positionPanelRenderAutomap = dummyPanelAutomap.Rectangle;
-            CreateExteriorAutomapTextures((int)positionPanelRenderAutomap.width, (int)positionPanelRenderAutomap.height);
+            Vector2 textureSize = new Vector2(dummyPanelAutomap.Rectangle.width, dummyPanelAutomap.Rectangle.height);
+            if (DaggerfallUnity.Settings.RetroRenderingMode == 1)
+                textureSize = new Vector2(318, 169);
+            else if (DaggerfallUnity.Settings.RetroRenderingMode == 2)
+                textureSize = new Vector2(318 * 2, 169 * 2);
+            CreateExteriorAutomapTextures((int)textureSize.x, (int)textureSize.y);
 
             if (compass != null)
             {
@@ -855,11 +859,17 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             panelRenderAutomap.Components.Clear();
 
             Rect restrictionRect = panelRenderAutomap.Rectangle;
+            Vector3 retroModeCompensationRatio = new Vector3(1, 1, 1);
+            if (DaggerfallUnity.Settings.RetroRenderingMode == 1)
+                retroModeCompensationRatio = new Vector3(Screen.width / 320, Screen.height / 200, 1);
+            else if (DaggerfallUnity.Settings.RetroRenderingMode == 2)
+                retroModeCompensationRatio = new Vector3(Screen.width / 640, Screen.height / 400, 1);
             for (int i=0; i < exteriorAutomap.buildingNameplates.Length; i++)
             {
                 float posX = exteriorAutomap.buildingNameplates[i].anchorPoint.x - exteriorAutomap.LocationWidth * exteriorAutomap.BlockSizeWidth * 0.5f;
                 float posY = exteriorAutomap.buildingNameplates[i].anchorPoint.y - exteriorAutomap.LocationHeight * exteriorAutomap.BlockSizeHeight * 0.5f;
-                Vector3 transformedPosition = exteriorAutomap.CameraExteriorAutomap.WorldToScreenPoint(new Vector3(posX, 0, posY));
+                Vector3 transformedPosition = Vector3.Scale(exteriorAutomap.CameraExteriorAutomap.WorldToScreenPoint(new Vector3(posX, 0, posY)), retroModeCompensationRatio);
+
                 exteriorAutomap.buildingNameplates[i].textLabel.TextScale = Math.Max(minTextScaleNameplates, textScaleNameplates / cameraExteriorAutomap.orthographicSize * dummyPanelAutomap.LocalScale.x);
                 exteriorAutomap.buildingNameplates[i].textLabel.Position = new Vector2(transformedPosition.x, dummyPanelAutomap.InteriorHeight * dummyPanelAutomap.LocalScale.y - transformedPosition.y - exteriorAutomap.buildingNameplates[i].textLabel.TextHeight * 0.5f);
                 exteriorAutomap.buildingNameplates[i].textLabel.RectRestrictedRenderArea = restrictionRect;
@@ -952,8 +962,12 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                 //Debug.Log(String.Format("dummy panel size: {0}, {1}; {2}, {3}; {4}, {5}; {6}, {7}\n", NativePanel.InteriorWidth, NativePanel.InteriorHeight, ParentPanel.InteriorWidth, ParentPanel.InteriorHeight, dummyPanelAutomap.InteriorWidth, dummyPanelAutomap.InteriorHeight, parentPanel.InteriorWidth, parentPanel.InteriorHeight));
                 //Debug.Log(String.Format("dummy panel pos: {0}, {1}; {2}, {3}; {4}, {5}; {6}, {7}\n", NativePanel.Rectangle.xMin, NativePanel.Rectangle.yMin, ParentPanel.Rectangle.xMin, ParentPanel.Rectangle.yMin, dummyPanelAutomap.Rectangle.xMin, dummyPanelAutomap.Rectangle.yMin, parentPanel.Rectangle.xMin, parentPanel.Rectangle.yMin));
                 //Vector2 positionPanelRenderAutomap = new Vector2(dummyPanelAutomap.InteriorWidth, dummyPanelAutomap.InteriorHeight);
-                Vector2 positionPanelRenderAutomap = new Vector2(dummyPanelAutomap.Rectangle.width, dummyPanelAutomap.Rectangle.height);
-                CreateExteriorAutomapTextures((int)positionPanelRenderAutomap.x, (int)positionPanelRenderAutomap.y);
+                Vector2 textureSize = new Vector2(dummyPanelAutomap.Rectangle.width, dummyPanelAutomap.Rectangle.height);
+                if (DaggerfallUnity.Settings.RetroRenderingMode == 1)
+                    textureSize = new Vector2(318, 169);
+                else if (DaggerfallUnity.Settings.RetroRenderingMode == 2)
+                    textureSize = new Vector2(318 * 2, 169 * 2);
+                CreateExteriorAutomapTextures((int)textureSize.x, (int)textureSize.y);
                 UpdateAutomapView();
 
                 // get compass position from dummyPanelCompass rectangle
@@ -982,9 +996,11 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                     UnityEngine.Object.Destroy(textureExteriorAutomap);
 
                 renderTextureExteriorAutomap = new RenderTexture(width, height, renderTextureExteriorAutomapDepth);
+                renderTextureExteriorAutomap.filterMode = FilterMode.Point;
                 cameraExteriorAutomap.targetTexture = renderTextureExteriorAutomap;
 
                 textureExteriorAutomap = new Texture2D(renderTextureExteriorAutomap.width, renderTextureExteriorAutomap.height, TextureFormat.ARGB32, false);
+                textureExteriorAutomap.filterMode = FilterMode.Point;
 
                 oldRenderTextureExteriorAutomapWidth = width;
                 oldRenderTextureExteriorAutomapHeight = height;

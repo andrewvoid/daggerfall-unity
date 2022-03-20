@@ -544,8 +544,12 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
             cameraAutomap = automap.CameraAutomap;
 
             // create automap render texture and Texture2D used in conjuction with automap camera to render automap level geometry and display it in panel
-            Rect positionPanelRenderAutomap = dummyPanelAutomap.Rectangle;
-            CreateAutomapTextures((int)positionPanelRenderAutomap.width, (int)positionPanelRenderAutomap.height);
+            Vector2 textureSize = new Vector2(dummyPanelAutomap.Rectangle.width, dummyPanelAutomap.Rectangle.height);
+            if (DaggerfallUnity.Settings.RetroRenderingMode == 1)
+                textureSize = new Vector2(318, 169);
+            else if (DaggerfallUnity.Settings.RetroRenderingMode == 2)
+                textureSize = new Vector2(318*2, 169*2);
+            CreateAutomapTextures((int)textureSize.x, (int)textureSize.y);
 
             switch (automapViewMode)
             {
@@ -1097,8 +1101,12 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                 //Debug.Log(String.Format("dummy panel size: {0}, {1}; {2}, {3}; {4}, {5}; {6}, {7}\n", NativePanel.InteriorWidth, NativePanel.InteriorHeight, ParentPanel.InteriorWidth, ParentPanel.InteriorHeight, dummyPanelAutomap.InteriorWidth, dummyPanelAutomap.InteriorHeight, parentPanel.InteriorWidth, parentPanel.InteriorHeight));
                 //Debug.Log(String.Format("dummy panel pos: {0}, {1}; {2}, {3}; {4}, {5}; {6}, {7}\n", NativePanel.Rectangle.xMin, NativePanel.Rectangle.yMin, ParentPanel.Rectangle.xMin, ParentPanel.Rectangle.yMin, dummyPanelAutomap.Rectangle.xMin, dummyPanelAutomap.Rectangle.yMin, parentPanel.Rectangle.xMin, parentPanel.Rectangle.yMin));
                 //Vector2 positionPanelRenderAutomap = new Vector2(dummyPanelAutomap.InteriorWidth, dummyPanelAutomap.InteriorHeight);
-                Vector2 positionPanelRenderAutomap = new Vector2(dummyPanelAutomap.Rectangle.width, dummyPanelAutomap.Rectangle.height);
-                CreateAutomapTextures((int)positionPanelRenderAutomap.x, (int)positionPanelRenderAutomap.y);
+                Vector2 textureSize = new Vector2(dummyPanelAutomap.Rectangle.width, dummyPanelAutomap.Rectangle.height);
+                if (DaggerfallUnity.Settings.RetroRenderingMode == 1)
+                    textureSize = new Vector2(318, 169);
+                else if (DaggerfallUnity.Settings.RetroRenderingMode == 2)
+                    textureSize = new Vector2(318 * 2, 169 * 2);
+                CreateAutomapTextures((int)textureSize.x, (int)textureSize.y);
                 UpdateAutomapView();
 
                 // get compass position from dummyPanelCompass rectangle
@@ -1127,9 +1135,11 @@ namespace DaggerfallWorkshop.Game.UserInterfaceWindows
                     UnityEngine.Object.Destroy(textureAutomap);
 
                 renderTextureAutomap = new RenderTexture(width, height, renderTextureAutomapDepth);
+                renderTextureAutomap.filterMode = FilterMode.Point;
                 cameraAutomap.targetTexture = renderTextureAutomap;
 
                 textureAutomap = new Texture2D(renderTextureAutomap.width, renderTextureAutomap.height, TextureFormat.ARGB32, false);
+                textureAutomap.filterMode = FilterMode.Point;
 
                 oldRenderTextureAutomapWidth = width;
                 oldRenderTextureAutomapHeight = height;
