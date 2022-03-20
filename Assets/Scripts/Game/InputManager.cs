@@ -123,6 +123,7 @@ namespace DaggerfallWorkshop.Game
         bool pauseController = false;
 
         bool smallCursor = false;
+        Vector2 cursorScale = new Vector2(1,1);
 
         #endregion
 
@@ -431,7 +432,11 @@ namespace DaggerfallWorkshop.Game
                 DaggerfallUnity.LogMessage(string.Format("Could not load keybinds file. The exception was: '{0}'", ex.Message), true);
                 DaggerfallUnity.LogMessage("Setting default key binds after failed load.", true);
             }
-            if (smallCursorImage != null && Screen.height <= 480) smallCursor = true;
+            if (smallCursorImage != null && Screen.height <= 480)
+            {
+                smallCursor = true;
+                cursorScale = new Vector2((float)Math.Ceiling(Screen.width / 320f), (float)Math.Ceiling(Screen.height / 200f));
+            }
         }
 
         void Update()
@@ -591,7 +596,7 @@ namespace DaggerfallWorkshop.Game
                     {
                         Cursor.visible = false;
                         GUI.depth = 0;
-                        GUI.DrawTexture(new Rect(MousePosition.x, Screen.height - MousePosition.y, smallCursorImage.width, smallCursorImage.height), smallCursorImage);
+                        GUI.DrawTexture(new Rect(MousePosition.x, Screen.height - MousePosition.y, smallCursorImage.width * cursorScale.x, smallCursorImage.height * cursorScale.y), smallCursorImage);
                     }
 
                 }
