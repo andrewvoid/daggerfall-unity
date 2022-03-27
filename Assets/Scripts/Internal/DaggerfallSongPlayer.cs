@@ -1,4 +1,4 @@
-﻿// Project:         Daggerfall Tools For Unity
+// Project:         Daggerfall Tools For Unity
 // Copyright:       Copyright (C) 2009-2021 Daggerfall Workshop
 // Web Site:        http://www.dfworkshop.net
 // License:         MIT License (http://www.opensource.org/licenses/mit-license.php)
@@ -59,7 +59,11 @@ namespace DaggerfallWorkshop
         float oldGain;
 
         bool isImported;
-        bool isLoading;     
+        bool isLoading;
+
+        bool useRealMidiOut = true;
+        MidiOutWrapper midiOut = null;
+
 
         /// <summary>
         /// Gets peer AudioSource component.
@@ -79,36 +83,43 @@ namespace DaggerfallWorkshop
 
         void Update()
         {
-            if (!isImported)
+            if (useRealMidiOut)
             {
-                // Update status
-                if (midiSequencer != null)
-                {
-                    IsPlaying = midiSequencer.IsPlaying;
-                    CurrentTime = midiSequencer.CurrentTime;
-                    EndTime = midiSequencer.EndTime;
-                }
+                IsPlaying = midiOut.IsPlaying;
             }
             else
             {
-                // Start playing
-                if (isLoading && audioSource.clip.loadState == AudioDataLoadState.Loaded)
+                if (!isImported)
                 {
-                    isLoading = false;
-                    audioSource.Play();
+                    // Update status
+                    if (midiSequencer != null)
+                    {
+                        IsPlaying = midiSequencer.IsPlaying;
+                        CurrentTime = midiSequencer.CurrentTime;
+                        EndTime = midiSequencer.EndTime;
+                    }
                 }
+                else
+                {
+                    // Start playing
+                    if (isLoading && audioSource.clip.loadState == AudioDataLoadState.Loaded)
+                    {
+                        isLoading = false;
+                        audioSource.Play();
+                    }
 
-                // Update status
-                IsPlaying = audioSource.isPlaying || isLoading;
-                CurrentTime = audioSource.timeSamples;
-                EndTime = audioSource.clip.samples;
+                    // Update status
+                    IsPlaying = audioSource.isPlaying || isLoading;
+                    CurrentTime = audioSource.timeSamples;
+                    EndTime = audioSource.clip.samples;
+                }
+                audioSource.volume = IsMuted ? 0f : DaggerfallUnity.Settings.MusicVolume;
             }
-            audioSource.volume = IsMuted ? 0f : DaggerfallUnity.Settings.MusicVolume;
         }
 
         void LateUpdate()
         {
-            if (!isImported)
+            if (!isImported && !useRealMidiOut)
             {
                 if (audioSource.playOnAwake && (midiSequencer != null && !midiSequencer.IsPlaying) && !awakeComplete)
                 {
@@ -171,7 +182,14 @@ namespace DaggerfallWorkshop
 
             // Create song
             MidiFile midiFile = new MidiFile(new MyMemoryFile(songData, filename));
-            if (midiSequencer.LoadMidi(midiFile))
+            if (useRealMidiOut)
+            {
+                midiOut.Play(new MyMemoryFile(songData, filename).OpenResourceForRead());
+                playEnabled = true;
+                IsPlaying = true;
+                currentMidiName = filename;
+            }
+            else if (midiSequencer.LoadMidi(midiFile))
             {
                 midiSequencer.Play();
                 currentMidiName = filename;
@@ -180,9 +198,10 @@ namespace DaggerfallWorkshop
             }
         }
 
+
         /// <summary>
-        /// Stop playing song.
-        /// </summary>
+         /// Stop playing song.
+         /// </summary>
         public void Stop()
         {
             if (!InitSynth())
@@ -198,12 +217,18 @@ namespace DaggerfallWorkshop
             }
 
             // Stop if playing a song
-            if (midiSequencer.IsPlaying)
+            if (midiSequencer != null && midiSequencer.IsPlaying)
             {
                 midiSequencer.Stop();
                 midiSynthesizer.NoteOffAll(true);
                 midiSynthesizer.ResetSynthControls();
                 midiSynthesizer.ResetPrograms();
+                playEnabled = false;
+            }
+
+            if (midiOut != null && midiOut.IsPlaying)
+            {
+                midiOut.Stop();
                 playEnabled = false;
             }
         }
@@ -212,63 +237,69 @@ namespace DaggerfallWorkshop
 
         private bool InitSynth()
         {
-            // Get peer AudioSource
-            audioSource = GetComponent<AudioSource>();
-            if (audioSource == null)
+            if (useRealMidiOut && midiOut == null)
             {
-                DaggerfallUnity.LogMessage("DaggerfallSongPlayer: Could not find AudioSource component.");
-                return false;
+                midiOut = MidiOutWrapper.Instance;
             }
-
-            // Create synthesizer and load bank
-            if (midiSynthesizer == null)
+            else
             {
-                // Get number of channels
-                if (AudioSettings.driverCapabilities.ToString() == "Mono")
-                    channels = 1;
-                else
-                    channels = 2;
-
-                // Create synth
-                AudioSettings.GetDSPBufferSize(out bufferLength, out numBuffers);
-                midiSynthesizer = new Synthesizer(sampleRate, channels, bufferLength / numBuffers, numBuffers, polyphony);
-
-                // Load bank data
-                string filename = DaggerfallUnity.Settings.SoundFont;
-                byte[] bankData = LoadBank(filename);
-                if (bankData == null)
+                // Get peer AudioSource
+                audioSource = GetComponent<AudioSource>();
+                if (audioSource == null)
                 {
-                    // Attempt to fallback to default internal soundfont
-                    bankData = LoadDefaultSoundFont();
-                    filename = defaultSoundFontFilename;
-                    Debug.LogFormat("Using default SoundFont {0}", defaultSoundFontFilename);
-                }
-                else
-                {
-                    Debug.LogFormat("Trying custom SoundFont {0}", filename);
-                }
-
-                // Assign to synth
-                if (bankData == null)
+                    DaggerfallUnity.LogMessage("DaggerfallSongPlayer: Could not find AudioSource component.");
                     return false;
-                else
+                }
+                // Create synthesizer and load bank
+                if (midiSynthesizer == null)
                 {
-                    midiSynthesizer.LoadBank(new MyMemoryFile(bankData, filename));
-                    midiSynthesizer.ResetSynthControls(); // Need to do this for bank to load properly, don't know why
+                    // Get number of channels
+                    if (AudioSettings.driverCapabilities.ToString() == "Mono")
+                        channels = 1;
+                    else
+                        channels = 2;
+
+                    // Create synth
+                    AudioSettings.GetDSPBufferSize(out bufferLength, out numBuffers);
+                    midiSynthesizer = new Synthesizer(sampleRate, channels, bufferLength / numBuffers, numBuffers, polyphony);
+
+                    // Load bank data
+                    string filename = DaggerfallUnity.Settings.SoundFont;
+                    byte[] bankData = LoadBank(filename);
+                    if (bankData == null)
+                    {
+                        // Attempt to fallback to default internal soundfont
+                        bankData = LoadDefaultSoundFont();
+                        filename = defaultSoundFontFilename;
+                        Debug.LogFormat("Using default SoundFont {0}", defaultSoundFontFilename);
+                    }
+                    else
+                    {
+                        Debug.LogFormat("Trying custom SoundFont {0}", filename);
+                    }
+
+                    // Assign to synth
+                    if (bankData == null)
+                        return false;
+                    else
+                    {
+                        midiSynthesizer.LoadBank(new MyMemoryFile(bankData, filename));
+                        midiSynthesizer.ResetSynthControls(); // Need to do this for bank to load properly, don't know why
+                    }
+                }
+
+
+                // Create sequencer
+                if (midiSequencer == null)
+                    midiSequencer = new MidiFileSequencer(midiSynthesizer);
+
+                // Check init
+                if (midiSynthesizer == null || midiSequencer == null)
+                {
+                    DaggerfallUnity.LogMessage("DaggerfallSongPlayer: Failed to init synth.");
+                    return false;
                 }
             }
-
-            // Create sequencer
-            if (midiSequencer == null)
-                midiSequencer = new MidiFileSequencer(midiSynthesizer);
-
-            // Check init
-            if (midiSynthesizer == null || midiSequencer == null)
-            {
-                DaggerfallUnity.LogMessage("DaggerfallSongPlayer: Failed to init synth.");
-                return false;
-            }
-
             return true;
         }
 
@@ -359,6 +390,7 @@ namespace DaggerfallWorkshop
             oldGain = Gain;
             Gain = 0;
             IsMuted = true;
+            if (useRealMidiOut) midiOut.Stop();
         }
 
         private void DaggerfallVidPlayerWindow_OnVideoEnd()
