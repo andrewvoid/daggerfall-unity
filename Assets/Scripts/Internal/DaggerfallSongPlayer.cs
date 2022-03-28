@@ -20,6 +20,7 @@ using DaggerfallWorkshop.AudioSynthesis.Synthesis;
 using DaggerfallWorkshop.AudioSynthesis.Midi;
 using DaggerfallWorkshop.Utility.AssetInjection;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
+using Melanchall.DryWetMidi.Multimedia;
 
 namespace DaggerfallWorkshop
 {
@@ -62,7 +63,8 @@ namespace DaggerfallWorkshop
         bool isLoading;
 
         bool useRealMidiOut = true;
-        MidiOutWrapper midiOut = null;
+        private static OutputDevice midiOut = null;
+        Playback midiPlayback;
 
 
         /// <summary>
@@ -85,7 +87,7 @@ namespace DaggerfallWorkshop
         {
             if (useRealMidiOut)
             {
-                IsPlaying = midiOut.IsPlaying;
+                IsPlaying = midiPlayback != null ? midiPlayback.IsRunning : false;
             }
             else
             {
@@ -145,6 +147,31 @@ namespace DaggerfallWorkshop
             }
         }
 
+        private void OnDestroy()
+        {
+            if (midiPlayback != null)
+            {
+                midiPlayback.Stop();
+                midiOut?.TurnAllNotesOff();
+                midiPlayback.Dispose();
+                midiPlayback = null;
+            }
+            midiOut?.Dispose();
+            midiOut = null;
+        }
+
+        private void OnApplicationQuit()
+        {
+            if (midiPlayback != null)
+            {
+                midiPlayback.Stop();
+                midiOut?.TurnAllNotesOff();
+                midiPlayback.Dispose();
+                midiPlayback = null;
+            }
+            midiOut?.Dispose();
+        }
+
         public void Play()
         {
             if (Song == SongFiles.song_none)
@@ -184,10 +211,36 @@ namespace DaggerfallWorkshop
             MidiFile midiFile = new MidiFile(new MyMemoryFile(songData, filename));
             if (useRealMidiOut)
             {
-                midiOut.Play(new MyMemoryFile(songData, filename).OpenResourceForRead());
-                playEnabled = true;
-                IsPlaying = true;
-                currentMidiName = filename;
+                try
+                {
+                    midiPlayback?.Dispose();
+                    Melanchall.DryWetMidi.Core.MidiFile realOutFile = Melanchall.DryWetMidi.Core.MidiFile.Read(new MyMemoryFile(songData, filename).OpenResourceForRead());
+                    if (Application.isEditor)
+                    {
+                        midiPlayback = realOutFile.GetPlayback(midiOut, new PlaybackSettings
+                        {
+                            ClockSettings = new MidiClockSettings
+                            {
+                                CreateTickGeneratorCallback = () => new RegularPrecisionTickGenerator()
+                            }
+                        });
+                    }
+                    else
+                    { 
+                        midiPlayback = realOutFile.GetPlayback(midiOut);
+                    }
+                    midiPlayback.InterruptNotesOnStop = true;
+                    midiPlayback.Loop = true;
+                    midiPlayback.Start();
+                    playEnabled = true;
+                    IsPlaying = true;
+                    currentMidiName = filename;
+                }
+                catch (MidiDeviceException e)
+                {
+                    // Try again next time
+                    midiPlayback?.Dispose();
+                }
             }
             else if (midiSequencer.LoadMidi(midiFile))
             {
@@ -198,10 +251,18 @@ namespace DaggerfallWorkshop
             }
         }
 
+        void OnDisable()
+        {
+            if (playEnabled && midiPlayback != null && midiPlayback.IsRunning)
+            {
+                midiPlayback.Stop();
+                midiOut.TurnAllNotesOff();
+            }
+        }
 
         /// <summary>
-         /// Stop playing song.
-         /// </summary>
+        /// Stop playing song.
+        /// </summary>
         public void Stop()
         {
             if (!InitSynth())
@@ -226,9 +287,11 @@ namespace DaggerfallWorkshop
                 playEnabled = false;
             }
 
-            if (midiOut != null && midiOut.IsPlaying)
+            if (midiPlayback != null && midiPlayback.IsRunning)
             {
-                midiOut.Stop();
+                midiPlayback.Stop();
+                midiPlayback.Dispose();
+                midiOut.TurnAllNotesOff();
                 playEnabled = false;
             }
         }
@@ -237,9 +300,10 @@ namespace DaggerfallWorkshop
 
         private bool InitSynth()
         {
-            if (useRealMidiOut && midiOut == null)
+            if (useRealMidiOut)
             {
-                midiOut = MidiOutWrapper.Instance;
+                
+                if (midiOut == null) midiOut = OutputDevice.GetByIndex(0);//TODO
             }
             else
             {
@@ -390,7 +454,11 @@ namespace DaggerfallWorkshop
             oldGain = Gain;
             Gain = 0;
             IsMuted = true;
-            if (useRealMidiOut) midiOut.Stop();
+            if (midiPlayback != null)
+            {
+                midiPlayback.Stop();
+                midiOut.TurnAllNotesOff();
+            }
         }
 
         private void DaggerfallVidPlayerWindow_OnVideoEnd()
