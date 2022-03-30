@@ -152,7 +152,6 @@ namespace DaggerfallWorkshop
             if (midiPlayback != null)
             {
                 midiPlayback.Stop();
-                midiOut?.TurnAllNotesOff();
                 midiPlayback.Dispose();
                 midiPlayback = null;
             }
@@ -207,13 +206,11 @@ namespace DaggerfallWorkshop
                 return;
 
             // Create song
-            MidiFile midiFile = new MidiFile(new MyMemoryFile(songData, filename));
             if (useRealMidiOut)
             {
                 try
                 {
-                    midiPlayback?.Dispose();
-                    Melanchall.DryWetMidi.Core.MidiFile realOutFile = Melanchall.DryWetMidi.Core.MidiFile.Read(new MyMemoryFile(songData, filename).OpenResourceForRead());
+                    Melanchall.DryWetMidi.Core.MidiFile realOutFile = Melanchall.DryWetMidi.Core.MidiFile.Read(new MemoryStream(songData));
                     if (Application.isEditor)
                     {
                         midiPlayback = realOutFile.GetPlayback(midiOut, new PlaybackSettings
@@ -225,7 +222,7 @@ namespace DaggerfallWorkshop
                         });
                     }
                     else
-                    { 
+                    {
                         midiPlayback = realOutFile.GetPlayback(midiOut);
                     }
                     midiPlayback.InterruptNotesOnStop = true;
@@ -241,12 +238,16 @@ namespace DaggerfallWorkshop
                     midiPlayback?.Dispose();
                 }
             }
-            else if (midiSequencer.LoadMidi(midiFile))
+            else
             {
-                midiSequencer.Play();
-                currentMidiName = filename;
-                playEnabled = true;
-                IsPlaying = true;
+                MidiFile midiFile = new MidiFile(new MyMemoryFile(songData, filename));
+                if (midiSequencer.LoadMidi(midiFile))
+                {
+                    midiSequencer.Play();
+                    currentMidiName = filename;
+                    playEnabled = true;
+                    IsPlaying = true;
+                }
             }
         }
 
@@ -255,7 +256,7 @@ namespace DaggerfallWorkshop
             if (playEnabled && midiPlayback != null && midiPlayback.IsRunning)
             {
                 midiPlayback.Stop();
-                midiOut.TurnAllNotesOff();
+                //midiOut.TurnAllNotesOff();
             }
         }
 
@@ -290,7 +291,7 @@ namespace DaggerfallWorkshop
             {
                 midiPlayback.Stop();
                 midiPlayback.Dispose();
-                midiOut.TurnAllNotesOff();
+                //midiOut.TurnAllNotesOff();
                 playEnabled = false;
             }
         }
