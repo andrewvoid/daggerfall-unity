@@ -156,8 +156,6 @@ namespace DaggerfallWorkshop
                 midiPlayback.Dispose();
                 midiPlayback = null;
             }
-            midiOut?.Dispose();
-            midiOut = null;
         }
 
         private void OnApplicationQuit()
@@ -170,6 +168,7 @@ namespace DaggerfallWorkshop
                 midiPlayback = null;
             }
             midiOut?.Dispose();
+            if (!Application.isEditor) { System.Diagnostics.Process.GetCurrentProcess().Kill(); }
         }
 
         public void Play()
