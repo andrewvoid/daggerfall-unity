@@ -65,6 +65,7 @@ namespace DaggerfallWorkshop
         static OutputDevice midiOut = null;
         bool useRealMidiOut = true;
         Playback midiPlayback;
+        String midiDevice = "CoolSoft MIDIMapper"; //TODO option in the settings
 
 
         /// <summary>
@@ -87,6 +88,11 @@ namespace DaggerfallWorkshop
         {
             if (useRealMidiOut)
             {
+                if(isLoading && midiPlayback != null && !midiPlayback.IsRunning)
+                {
+                    midiPlayback.Start();
+                    isLoading = false;
+                }
                 IsPlaying = midiPlayback != null ? midiPlayback.IsRunning : false;
             }
             else if (!isImported)
@@ -224,15 +230,15 @@ namespace DaggerfallWorkshop
                     midiPlayback.InterruptNotesOnStop = true;
                     midiPlayback.Loop = true;
                     playEnabled = true;
-                    IsPlaying = true;
+                    isLoading = true;
                     currentMidiName = filename;
-                    midiPlayback.Start();
                 }
                 catch (MidiDeviceException e)
                 {
-                    // Try again next time
+                    // Try again next loop
                     midiPlayback?.Dispose();
                     midiPlayback = null;
+                    Debug.LogFormat("Couldn't start midi playback for track {0}: {1}", currentMidiName, e.Message);
                 }
             }
             else
@@ -301,11 +307,12 @@ namespace DaggerfallWorkshop
                 {
                     try
                     {
-                        midiOut = OutputDevice.GetByName("CoolSoft MIDIMapper");//TODO
+                        midiOut = OutputDevice.GetByName(midiDevice);
                     }
                     catch (MidiDeviceException e)
                     {
-                        // Try again next time
+                        // Try again next loop
+                        Debug.LogFormat("Couldn't get midi device {0}: {1}", midiDevice, e.Message);
                         return false;
                     }
                 }
