@@ -62,8 +62,8 @@ namespace DaggerfallWorkshop
         bool isImported;
         bool isLoading;
 
+        static OutputDevice midiOut = null;
         bool useRealMidiOut = true;
-        private static OutputDevice midiOut = null;
         Playback midiPlayback;
 
 
@@ -89,34 +89,31 @@ namespace DaggerfallWorkshop
             {
                 IsPlaying = midiPlayback != null ? midiPlayback.IsRunning : false;
             }
+            else if (!isImported)
+            {
+                // Update status
+                if (midiSequencer != null)
+                {
+                    IsPlaying = midiSequencer.IsPlaying;
+                    CurrentTime = midiSequencer.CurrentTime;
+                    EndTime = midiSequencer.EndTime;
+                }
+            }
             else
             {
-                if (!isImported)
+                // Start playing
+                if (isLoading && audioSource.clip.loadState == AudioDataLoadState.Loaded)
                 {
-                    // Update status
-                    if (midiSequencer != null)
-                    {
-                        IsPlaying = midiSequencer.IsPlaying;
-                        CurrentTime = midiSequencer.CurrentTime;
-                        EndTime = midiSequencer.EndTime;
-                    }
+                    isLoading = false;
+                    audioSource.Play();
                 }
-                else
-                {
-                    // Start playing
-                    if (isLoading && audioSource.clip.loadState == AudioDataLoadState.Loaded)
-                    {
-                        isLoading = false;
-                        audioSource.Play();
-                    }
 
-                    // Update status
-                    IsPlaying = audioSource.isPlaying || isLoading;
-                    CurrentTime = audioSource.timeSamples;
-                    EndTime = audioSource.clip.samples;
-                }
-                audioSource.volume = IsMuted ? 0f : DaggerfallUnity.Settings.MusicVolume;
+                // Update status
+                IsPlaying = audioSource.isPlaying || isLoading;
+                CurrentTime = audioSource.timeSamples;
+                EndTime = audioSource.clip.samples;
             }
+            audioSource.volume = IsMuted ? 0f : DaggerfallUnity.Settings.MusicVolume;
         }
 
         void LateUpdate()
@@ -147,9 +144,17 @@ namespace DaggerfallWorkshop
             }
         }
 
+        void OnDisable()
+        {
+            if (midiPlayback != null && midiPlayback.IsRunning)
+            {
+                midiPlayback.Stop();
+            }
+        }
+
         private void OnDestroy()
         {
-            if (midiPlayback != null)
+            if(midiPlayback != null)
             {
                 midiPlayback.Stop();
                 midiPlayback.Dispose();
@@ -162,12 +167,10 @@ namespace DaggerfallWorkshop
             if (midiPlayback != null)
             {
                 midiPlayback.Stop();
-                midiOut?.TurnAllNotesOff();
                 midiPlayback.Dispose();
                 midiPlayback = null;
             }
             midiOut?.Dispose();
-            if (!Application.isEditor) { System.Diagnostics.Process.GetCurrentProcess().Kill(); }
         }
 
         public void Play()
@@ -211,31 +214,25 @@ namespace DaggerfallWorkshop
                 try
                 {
                     Melanchall.DryWetMidi.Core.MidiFile realOutFile = Melanchall.DryWetMidi.Core.MidiFile.Read(new MemoryStream(songData));
-                    if (Application.isEditor)
+                    midiPlayback = realOutFile.GetPlayback(midiOut, new PlaybackSettings
                     {
-                        midiPlayback = realOutFile.GetPlayback(midiOut, new PlaybackSettings
+                        ClockSettings = new MidiClockSettings
                         {
-                            ClockSettings = new MidiClockSettings
-                            {
-                                CreateTickGeneratorCallback = () => new RegularPrecisionTickGenerator()
-                            }
-                        });
-                    }
-                    else
-                    {
-                        midiPlayback = realOutFile.GetPlayback(midiOut);
-                    }
+                            CreateTickGeneratorCallback = () => null
+                        }
+                    }); 
                     midiPlayback.InterruptNotesOnStop = true;
                     midiPlayback.Loop = true;
-                    midiPlayback.Start();
                     playEnabled = true;
                     IsPlaying = true;
                     currentMidiName = filename;
+                    midiPlayback.Start();
                 }
                 catch (MidiDeviceException e)
                 {
                     // Try again next time
                     midiPlayback?.Dispose();
+                    midiPlayback = null;
                 }
             }
             else
@@ -248,15 +245,6 @@ namespace DaggerfallWorkshop
                     playEnabled = true;
                     IsPlaying = true;
                 }
-            }
-        }
-
-        void OnDisable()
-        {
-            if (playEnabled && midiPlayback != null && midiPlayback.IsRunning)
-            {
-                midiPlayback.Stop();
-                //midiOut.TurnAllNotesOff();
             }
         }
 
@@ -291,7 +279,7 @@ namespace DaggerfallWorkshop
             {
                 midiPlayback.Stop();
                 midiPlayback.Dispose();
-                //midiOut.TurnAllNotesOff();
+                midiPlayback = null;
                 playEnabled = false;
             }
         }
@@ -300,20 +288,30 @@ namespace DaggerfallWorkshop
 
         private bool InitSynth()
         {
+            // Get peer AudioSource
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null)
+            {
+                DaggerfallUnity.LogMessage("DaggerfallSongPlayer: Could not find AudioSource component.");
+                return false;
+            }
             if (useRealMidiOut)
             {
-                
-                if (midiOut == null) midiOut = OutputDevice.GetByIndex(0);//TODO
+                if (midiOut == null)
+                {
+                    try
+                    {
+                        midiOut = OutputDevice.GetByName("CoolSoft MIDIMapper");//TODO
+                    }
+                    catch (MidiDeviceException e)
+                    {
+                        // Try again next time
+                        return false;
+                    }
+                }
             }
             else
             {
-                // Get peer AudioSource
-                audioSource = GetComponent<AudioSource>();
-                if (audioSource == null)
-                {
-                    DaggerfallUnity.LogMessage("DaggerfallSongPlayer: Could not find AudioSource component.");
-                    return false;
-                }
                 // Create synthesizer and load bank
                 if (midiSynthesizer == null)
                 {
@@ -454,7 +452,7 @@ namespace DaggerfallWorkshop
             oldGain = Gain;
             Gain = 0;
             IsMuted = true;
-            if (midiPlayback != null)
+            if (midiPlayback != null && midiPlayback.IsRunning)
             {
                 midiPlayback.Stop();
                 midiOut.TurnAllNotesOff();
@@ -480,6 +478,8 @@ namespace DaggerfallWorkshop
             // Helps avoids thread finding synth in state of shutting down
             if (!playEnabled)
                 return;
+
+            if (midiPlayback != null) midiPlayback.TickClock();
 
             // Must have synth and seq
             if (midiSynthesizer == null || midiSequencer == null)
