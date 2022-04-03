@@ -65,7 +65,7 @@ namespace DaggerfallWorkshop
         static OutputDevice midiOut = null;
         bool useRealMidiOut = true;
         Playback midiPlayback;
-        String midiDevice = "CoolSoft MIDIMapper"; //TODO option in the settings
+        String midiDevice = "UM-ONE"; //TODO option in the settings
 
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace DaggerfallWorkshop
         {
             if (useRealMidiOut)
             {
-                if(isLoading && midiPlayback != null && !midiPlayback.IsRunning)
+                if (isLoading && midiPlayback != null && !midiPlayback.IsRunning)
                 {
                     midiPlayback.Start();
                     isLoading = false;
@@ -154,7 +154,7 @@ namespace DaggerfallWorkshop
         {
             if (midiPlayback != null && midiPlayback.IsRunning)
             {
-                midiPlayback.Stop();
+                Stop();
             }
         }
 
@@ -219,6 +219,7 @@ namespace DaggerfallWorkshop
             {
                 try
                 {
+                    if (midiOut == null) midiOut = OutputDevice.GetByName(midiDevice);
                     Melanchall.DryWetMidi.Core.MidiFile realOutFile = Melanchall.DryWetMidi.Core.MidiFile.Read(new MemoryStream(songData));
                     midiPlayback = realOutFile.GetPlayback(midiOut, new PlaybackSettings
                     {
@@ -287,6 +288,18 @@ namespace DaggerfallWorkshop
                 midiPlayback.Dispose();
                 midiPlayback = null;
                 playEnabled = false;
+                // Needed to reset contols
+                try
+                {
+                    midiOut.Dispose();
+                    midiOut = OutputDevice.GetByName(midiDevice);
+                }
+                catch (MidiDeviceException e)
+                {
+                    // Try again next loop
+                    Debug.LogFormat("Couldn't get midi device {0}: {1}", midiDevice, e.Message);
+                    midiOut = null;
+                }
             }
         }
 
